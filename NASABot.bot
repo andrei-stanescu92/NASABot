@@ -1,0 +1,18 @@
+{
+    "name": "NASABot",
+    "description": "",
+    "services": [
+        {
+            "type": "endpoint",
+            "appId": "",
+            "appPassword": "",
+            "endpoint": "http://localhost:54332/api/messages",
+            "id": "51700f60-c4c5-11e8-a8c5-0ba7dcfe2606",
+            "name": "http://localhost:54332/api/messages"
+        }
+    ],
+    "padlock": "",
+    "version": "2.0",
+    "overrides": null,
+    "path": "C:\\Visual Studio projects\\NASABot\\NASABot\\NASABot.bot"
+}
