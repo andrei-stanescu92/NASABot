@@ -1,6 +1,8 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
+using NASABot.Accessors.Dialogs;
 using NASABot.Dialogs;
 using System;
 using System.Threading;
@@ -14,15 +16,16 @@ namespace NASABot
         private readonly WelcomeUserStateAccessors _welcomeUserStateAccessors;
         private readonly MultiTurnPromptsAccessor _promptsAccessor;
         private readonly DialogSet _dialogs;
-        private const string genericBotMessage = "Welcome to the NASA bot \n How should I call you ?";
+        private const string genericBotMessage = "Welcome to the NASA bot";
 
         // Initializes a new instance of the <see cref="WelcomeUserBot"/> class.
         public NASABot(WelcomeUserStateAccessors statePropertyAccessor, MultiTurnPromptsAccessor promptsAccessor)
         {
-            _welcomeUserStateAccessors = statePropertyAccessor ?? throw new System.ArgumentNullException("state accessor can't be null");
+            _welcomeUserStateAccessors = statePropertyAccessor ?? throw new ArgumentNullException("state accessor can't be null");
             _promptsAccessor = promptsAccessor ?? throw new ArgumentNullException("prompts accessor cannot be null");
 
-            //_dialogs = new DialogSet(_promptsAccessor.)
+            _dialogs = new DialogSet(_promptsAccessor.ConversationDialogState);
+            _dialogs.SetWaterfallSteps();
         }
 
         public async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
@@ -32,6 +35,7 @@ namespace NASABot
 
             if (turnContext.Activity.Type == ActivityTypes.Message)
             {
+                //Welcome User
                 if (didBotWelcomeUser == false)
                 {
                     // set bot welcomed user state to true
@@ -43,23 +47,25 @@ namespace NASABot
 
                     await turnContext.SendActivityAsync(genericBotMessage);
                 }
-                else
+                var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
+
+                var results = await dialogContext.ContinueDialogAsync(cancellationToken);
+
+                // If the DialogTurnStatus is Empty we should start a new dialog.
+                if (results.Status == DialogTurnStatus.Empty)
                 {
-                    var messageText = turnContext.Activity.Text;
-                    await turnContext.SendActivityAsync($"Hello { messageText}");
-                }//if (didBotWelcomeUser == false)
-                //{
+                    await dialogContext.BeginDialogAsync("GetData", cancellationToken);
+                }
 
-                //}
+                //save conversation state
+                await _promptsAccessor.ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
+
+                if (results.Status == DialogTurnStatus.Complete)
+                {
+                    var choiceSelected = results.Result as FoundChoice;
+                    await turnContext.SendActivityAsync($"You have chosen {choiceSelected.Value}");
+                }
             }
-            //if (turnContext.Activity.Type is ActivityTypes.Message)
-            //{
-            //    string userInput = turnContext.Activity.Text;
-            //    await turnContext.SendActivityAsync($"You wrote {userInput}");
-            //}
-
-            // Generic message to be sent to user
-
         }
     }
 }

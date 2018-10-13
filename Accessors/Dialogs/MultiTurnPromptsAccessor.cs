@@ -9,11 +9,11 @@ namespace NASABot.Dialogs
 {
     public class MultiTurnPromptsAccessor
     {
-        private readonly ConversationState conversationState;
+        public ConversationState ConversationState{ get; set; }
 
         public MultiTurnPromptsAccessor(ConversationState conversationState)
         {
-            this.conversationState = conversationState;
+            this.ConversationState = conversationState;
         }
 
         public IStatePropertyAccessor<DialogState> ConversationDialogState { get; set; }
