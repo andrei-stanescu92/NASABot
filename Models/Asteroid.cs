@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
 
-namespace NASABot.Services
+namespace NASABot.Models
 {
     public class Asteroid
     {
@@ -11,5 +11,6 @@ namespace NASABot.Services
 
         [JsonProperty(PropertyName = "is_potentially_hazardous_asteroid")]
         public bool IsPotentiallyHazardous { get; set; }
+
     }
 }

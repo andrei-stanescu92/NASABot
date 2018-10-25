@@ -14,6 +14,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NASABot.Dialogs;
+using NASABot.Models;
 using NASABot.Services;
 
 namespace NASABot

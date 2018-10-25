@@ -1,4 +1,4 @@
-﻿namespace NASABot
+﻿namespace NASABot.Models
 {
     public class UserProfile
     {
