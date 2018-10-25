@@ -1,12 +1,14 @@
-﻿using System.Collections.Generic;
+﻿using NASABot.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace NASABot.Services
 {
     public interface IDataService
     {
-        object GetAsteroidInfo();
-        List<object> GetAsteroids();
-        object GetMarsRoverPhoto();
-        object GetPictureOfTheDay();
+        Task<List<Asteroid>> GetAsteroids(string startDate, string endDate);
+        Task<List<MarsRoverPhoto>> GetMarsRoverPhoto(string earthDate);
+        Task<PictureOfTheDay> GetCurrentPictureOfTheDay();
     }
 }
