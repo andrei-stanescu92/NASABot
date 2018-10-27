@@ -12,5 +12,11 @@ namespace NASABot.Models
         [JsonProperty(PropertyName = "is_potentially_hazardous_asteroid")]
         public bool IsPotentiallyHazardous { get; set; }
 
+        public decimal Velocity { get; set; }
+
+        public decimal MinEstimatedDiameter { get; set; }
+
+        public decimal MaxEstimatedDiameter { get; set; }
+
     }
 }

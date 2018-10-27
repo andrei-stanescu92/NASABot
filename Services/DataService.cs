@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Configuration;
+using NASABot.Helpers;
 using NASABot.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -59,7 +60,12 @@ namespace NASABot.Services
 
                     foreach (var jToken in jArray)
                     {
-                        asteroids.Add(JsonConvert.DeserializeObject<Asteroid>(jToken.ToString()));
+                        Asteroid asteroidObject = JsonConvert.DeserializeObject<Asteroid>(jToken.ToString());
+
+                        AsteroidHelper.GetDiameter(asteroidObject, jToken);
+                        AsteroidHelper.GetVelocity(asteroidObject, jToken);
+
+                        asteroids.Add(asteroidObject);
                     }
                 }
             }
