@@ -1,4 +1,5 @@
 ﻿using Microsoft.Bot.Builder;
+using NASABot.Models;
 using System;
 
 namespace NASABot
@@ -12,6 +13,8 @@ namespace NASABot
         }
 
         public IStatePropertyAccessor<bool> DidBotWelcomeUser { get; set; }
+
+        public IStatePropertyAccessor<string> UserProfile { get; set; }
 
         public UserState UserState { get; }
     }

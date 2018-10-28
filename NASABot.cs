@@ -2,8 +2,8 @@
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
-using NASABot.Accessors.Dialogs;
 using NASABot.Dialogs;
+using NASABot.Services.Interfaces;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,56 +16,90 @@ namespace NASABot
         private readonly WelcomeUserStateAccessors _welcomeUserStateAccessors;
         private readonly MultiTurnPromptsAccessor _promptsAccessor;
         private readonly DialogSet _dialogs;
-        private const string genericBotMessage = "Welcome to the NASA bot";
+        private IDataService dataService;
 
         // Initializes a new instance of the <see cref="WelcomeUserBot"/> class.
-        public NASABot(WelcomeUserStateAccessors statePropertyAccessor, MultiTurnPromptsAccessor promptsAccessor)
+        public NASABot(WelcomeUserStateAccessors statePropertyAccessor, MultiTurnPromptsAccessor promptsAccessor, 
+            IDataService dataService, IDialogConfigurationService dialogConfigurationService)
         {
             _welcomeUserStateAccessors = statePropertyAccessor ?? throw new ArgumentNullException("state accessor can't be null");
             _promptsAccessor = promptsAccessor ?? throw new ArgumentNullException("prompts accessor cannot be null");
 
             _dialogs = new DialogSet(_promptsAccessor.ConversationDialogState);
-            _dialogs.SetWaterfallSteps();
+            dialogConfigurationService.SetDialogConfiguration(_dialogs);
+
+            this.dataService = dataService;
         }
 
         public async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
-            //set unassigned welcomeUser property to false
+
+            // set unassigned welcomeUser and user Profile name to default values
             var didBotWelcomeUser = await this._welcomeUserStateAccessors.DidBotWelcomeUser.GetAsync(turnContext, () => false);
+            await this._welcomeUserStateAccessors.UserProfile.GetAsync(turnContext, () => null);
+   
+            string userName = this._welcomeUserStateAccessors.UserProfile.GetAsync(turnContext).Result;
+
+            // create dialog context
+            var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
 
             if (turnContext.Activity.Type == ActivityTypes.Message)
             {
-                //Welcome User
+                // Welcome User
                 if (didBotWelcomeUser == false)
                 {
-                    // set bot welcomed user state to true
-                    await this._welcomeUserStateAccessors.DidBotWelcomeUser.SetAsync(turnContext, true);
-                    //save state
-                    await this._welcomeUserStateAccessors.UserState.SaveChangesAsync(turnContext);
-
-                    var userName = turnContext.Activity.From.Name;
-
-                    await turnContext.SendActivityAsync(genericBotMessage);
+                    await WelcomeUser(turnContext);
                 }
-                var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
-
-                var results = await dialogContext.ContinueDialogAsync(cancellationToken);
-
-                // If the DialogTurnStatus is Empty we should start a new dialog.
-                if (results.Status == DialogTurnStatus.Empty)
+                // get userName
+                else if(string.IsNullOrEmpty(userName) && didBotWelcomeUser)
                 {
-                    await dialogContext.BeginDialogAsync("GetData", cancellationToken);
+                    await GetUserProfileName(turnContext);
                 }
-
-                //save conversation state
-                await _promptsAccessor.ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
-
-                if (results.Status == DialogTurnStatus.Complete)
+                else
                 {
-                    var choiceSelected = results.Result as FoundChoice;
-                    await turnContext.SendActivityAsync($"You have chosen {choiceSelected.Value}");
+                    // create dialog context
+                    // var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
+
+                    var results = await dialogContext.ContinueDialogAsync(cancellationToken);
+
+                    // If the DialogTurnStatus is Empty we should start a new dialog.
+                    if (results.Status == DialogTurnStatus.Empty)
+                    {
+                        await dialogContext.BeginDialogAsync("GetData", cancellationToken);
+                    }
+
+                    // save conversation state
+                    await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
+
+                    if (results.Status == DialogTurnStatus.Complete)
+                    {
+                        var choiceSelected = results.Result as FoundChoice;
+                        await turnContext.SendActivityAsync($"You have chosen {choiceSelected.Value}");
+                    }
                 }
             }
+        }
+
+        private async Task GetUserProfileName(ITurnContext turnContext)
+        {
+            string userNameInput = turnContext.Activity.Text;
+            await this._welcomeUserStateAccessors.UserProfile.SetAsync(turnContext, userNameInput);
+
+            await this._welcomeUserStateAccessors.UserState.SaveChangesAsync(turnContext);
+
+            await turnContext.SendActivityAsync($"Hello { userNameInput }");
+        }
+
+        private async Task WelcomeUser(ITurnContext turnContext)
+        {
+            // set bot welcomed user state to true
+            await this._welcomeUserStateAccessors.DidBotWelcomeUser.SetAsync(turnContext, true);
+
+            // save state
+            await this._welcomeUserStateAccessors.UserState.SaveChangesAsync(turnContext);
+
+            await turnContext.SendActivityAsync("Hello");
+            await turnContext.SendActivityAsync("How shall I call you ?");
         }
     }
 }

@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace NASABot.Services
+namespace NASABot.Services.Interfaces
 {
     public interface IDataService
     {

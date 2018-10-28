@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.BotFramework;
 using Microsoft.Bot.Builder.Dialogs;
@@ -16,6 +13,7 @@ using Microsoft.Extensions.Options;
 using NASABot.Dialogs;
 using NASABot.Models;
 using NASABot.Services;
+using NASABot.Services.Interfaces;
 
 namespace NASABot
 {
@@ -71,6 +69,7 @@ namespace NASABot
                 var accessors = new WelcomeUserStateAccessors(userState)
                 {
                     DidBotWelcomeUser = userState.CreateProperty<bool>("DidBotWelcomeState"),
+                    UserProfile = userState.CreateProperty<string>("UserProfile")
                 };
 
                 return accessors;
@@ -85,14 +84,14 @@ namespace NASABot
 
                 var conversationAccessor = new MultiTurnPromptsAccessor(conversationState)
                 {
-                    ConversationDialogState = conversationState.CreateProperty<DialogState>("DialogState"),
-                    UserProfile = options.State.OfType<UserState>().FirstOrDefault().CreateProperty<UserProfile>("UserProfile")
+                    ConversationDialogState = conversationState.CreateProperty<DialogState>("DialogState")
                 };
 
                 return conversationAccessor;
             });
 
             services.AddSingleton<IDataService, DataService>();
+            services.AddSingleton<IDialogConfigurationService, DialogConfigurationService>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -106,10 +105,6 @@ namespace NASABot
             app.UseDefaultFiles();
             app.UseStaticFiles();
             app.UseBotFramework();
-            //app.Run(async (context) =>
-            //{
-            //    await context.Response.WriteAsync("Hello World!");
-            //});
         }
     }
 }
