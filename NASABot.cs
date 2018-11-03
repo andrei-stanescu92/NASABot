@@ -18,9 +18,8 @@ namespace NASABot
         private readonly WelcomeUserStateAccessors _welcomeUserStateAccessors;
         private readonly MultiTurnPromptsAccessor _promptsAccessor;
         private readonly DialogSet _dialogs;
-        private IDataService dataService;
+        private readonly IDataService dataService;
 
-        // Initializes a new instance of the <see cref="WelcomeUserBot"/> class.
         public NASABot(WelcomeUserStateAccessors statePropertyAccessor, MultiTurnPromptsAccessor promptsAccessor, 
             IDataService dataService, IDialogConfigurationService dialogConfigurationService)
         {
@@ -35,7 +34,6 @@ namespace NASABot
 
         public async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
-
             // set unassigned welcomeUser and user Profile name to default values
             var didBotWelcomeUser = await this._welcomeUserStateAccessors.DidBotWelcomeUser.GetAsync(turnContext, () => false);
             await this._welcomeUserStateAccessors.UserProfile.GetAsync(turnContext, () => null);
@@ -47,7 +45,7 @@ namespace NASABot
 
             if (turnContext.Activity.Type == ActivityTypes.Message)
             {
-                // Welcome User
+                // welcome User
                 if (didBotWelcomeUser == false)
                 {
                     await WelcomeUser(turnContext);
@@ -60,18 +58,12 @@ namespace NASABot
                     //present dialog options for user choose from
                     await dialogContext.PromptAsync("GetChoices", new PromptOptions()
                     {
-                        Choices = new List<Choice>()
-                        {
-                            new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid))
-                        },
+                        Choices = new List<Choice>() { new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid))},
                         Prompt = MessageFactory.Text("Select from one of the options")
                     });
                 }
                 else
                 {
-                    // create dialog context
-                    // var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
-
                     var results = await dialogContext.ContinueDialogAsync(cancellationToken);
 
                     // If the DialogTurnStatus is Empty we should start a new dialog.
