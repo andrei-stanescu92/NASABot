@@ -11,15 +11,14 @@ namespace NASABot.Services
 {
     public class DialogConfigurationService : IDialogConfigurationService
     {
-        public DialogConfigurationService(WelcomeUserStateAccessors welcomeUserState)
-        {
-
-        }
-
         public void SetDialogConfiguration(DialogSet dialogSet)
         {
             SetUserNameInputDialog(dialogSet);
             SetWaterfallSteps(dialogSet);
+
+            //add choice options dialog
+            var choicePrompt = new ChoicePrompt("GetChoices");
+            dialogSet.Add(choicePrompt);
         }
 
         private void SetUserNameInputDialog(DialogSet dialogSet)
@@ -77,12 +76,5 @@ namespace NASABot.Services
             await stepContext.Context.SendActivityAsync($"This is the choice selected {stepContext.Result.ToString()}");
             return await stepContext.EndDialogAsync();
         }
-
-        // private async Task<DialogTurnResult> HiStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        // {
-        //    await stepContext.Context.SendActivityAsync($"Hi {stepContext.Result}");
-
-        //    return await stepContext.ContinueDialogAsync(cancellationToken);
-        // }
     }
 }

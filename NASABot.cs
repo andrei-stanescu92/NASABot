@@ -3,8 +3,10 @@ using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
 using NASABot.Dialogs;
+using NASABot.Models;
 using NASABot.Services.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -54,6 +56,16 @@ namespace NASABot
                 else if(string.IsNullOrEmpty(userName) && didBotWelcomeUser)
                 {
                     await GetUserProfileName(turnContext);
+
+                    //present dialog options for user choose from
+                    await dialogContext.PromptAsync("GetChoices", new PromptOptions()
+                    {
+                        Choices = new List<Choice>()
+                        {
+                            new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid))
+                        },
+                        Prompt = MessageFactory.Text("Select from one of the options")
+                    });
                 }
                 else
                 {
