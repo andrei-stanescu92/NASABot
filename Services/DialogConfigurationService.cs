@@ -1,6 +1,7 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
+using Microsoft.Bot.Schema;
 using NASABot.Services.Interfaces;
 using System.Collections.Generic;
 using System.Threading;
@@ -10,14 +11,76 @@ namespace NASABot.Services
 {
     public class DialogConfigurationService : IDialogConfigurationService
     {
+        private readonly IDataService dataService;
+
+        public DialogConfigurationService(IDataService service)
+        {
+            this.dataService = service;
+        }
+
         public void SetDialogConfiguration(DialogSet dialogSet)
         {
             SetUserNameInputDialog(dialogSet);
             SetWaterfallSteps(dialogSet);
+            AddPictureOfTheDayDialog(dialogSet);
 
             //add choice options dialog
             var choicePrompt = new ChoicePrompt("GetChoices");
             dialogSet.Add(choicePrompt);
+
+            //add generic confirmation dialog
+            var confirmationPrompt = new ConfirmPrompt("ConfirmationDialog");
+            dialogSet.Add(confirmationPrompt);
+        }
+
+        private void AddPictureOfTheDayDialog(DialogSet dialogSet)
+        {
+            var dialogSteps = new WaterfallStep[]
+            {
+                ChoiceConfirmationDialogAsync,
+                DisplayPictureAsync
+            };
+
+            dialogSet.Add(new WaterfallDialog("ShowPictureOfTheDay", dialogSteps));
+        }
+
+        private async Task<DialogTurnResult> ChoiceConfirmationDialogAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            PromptOptions options = new PromptOptions()
+            {
+                Prompt = MessageFactory.Text($"Your choice is {stepContext.Context.Activity.Text}. Is that correct ?")
+            };
+            return await stepContext.PromptAsync("ConfirmationDialog", options);
+        }
+
+        private async Task<DialogTurnResult> DisplayPictureAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            // return picture object if user confirms choice selected. Otherwise end dialog
+            if ((bool)stepContext.Result == true)
+            {
+                var pictureOfTheDay = await this.dataService.GetCurrentPictureOfTheDay();
+
+                // create and send reply to user containing the returned API data
+                Activity reply = stepContext.Context.Activity.CreateReply(pictureOfTheDay.Title);
+                reply.Summary = pictureOfTheDay.Explanation;
+                var attachments = new List<Attachment>()
+                    {
+                        new Attachment
+                        {
+                            ContentUrl = pictureOfTheDay.Url,
+                            ContentType = "image/jpg"
+                        }
+                    };
+
+                reply.Attachments = attachments;
+                await stepContext.Context.SendActivityAsync(reply);
+                await stepContext.Context.SendActivityAsync(reply.Summary);
+                return await stepContext.EndDialogAsync();
+            }
+            else
+            {
+                return await stepContext.EndDialogAsync();
+            }
         }
 
         private void SetUserNameInputDialog(DialogSet dialogSet)

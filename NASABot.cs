@@ -51,34 +51,30 @@ namespace NASABot
                     await WelcomeUser(turnContext);
                 }
                 // get userName
-                else if(string.IsNullOrEmpty(userName) && didBotWelcomeUser)
+                else if (string.IsNullOrEmpty(userName) && didBotWelcomeUser)
                 {
                     await GetUserProfileName(turnContext);
 
                     //present dialog options for user choose from
                     await dialogContext.PromptAsync("GetChoices", new PromptOptions()
                     {
-                        Choices = new List<Choice>() { new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid))},
+                        Choices = new List<Choice>() { new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid)) },
                         Prompt = MessageFactory.Text("Select from one of the options")
                     });
                 }
+                // display information based on user selection
                 else
                 {
-                    var results = await dialogContext.ContinueDialogAsync(cancellationToken);
+                    var dialogResult = await dialogContext.ContinueDialogAsync(cancellationToken);
 
-                    // If the DialogTurnStatus is Empty we should start a new dialog.
-                    if (results.Status == DialogTurnStatus.Empty)
+                    if (dialogResult.Status == DialogTurnStatus.Empty)
                     {
-                        await dialogContext.BeginDialogAsync("GetData", cancellationToken);
-                    }
+                        if (turnContext.Activity.Text == nameof(PictureOfTheDay))
+                        {
+                            await dialogContext.BeginDialogAsync("ShowPictureOfTheDay");
 
-                    // save conversation state
-                    await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
-
-                    if (results.Status == DialogTurnStatus.Complete)
-                    {
-                        var choiceSelected = results.Result as FoundChoice;
-                        await turnContext.SendActivityAsync($"You have chosen {choiceSelected.Value}");
+                            await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext);
+                        }
                     }
                 }
             }
