@@ -20,7 +20,6 @@ namespace NASABot.Services
 
         public void SetDialogConfiguration(DialogSet dialogSet)
         {
-            SetUserNameInputDialog(dialogSet);
             SetWaterfallSteps(dialogSet);
             AddPictureOfTheDayDialog(dialogSet);
 
@@ -83,29 +82,9 @@ namespace NASABot.Services
             }
         }
 
-        private void SetUserNameInputDialog(DialogSet dialogSet)
-        {
-            var userNameInputWaterfall = new WaterfallStep[]
-            {
-                GetUserNameAsync,
-                EndDialogAsync
-            };
-
-            var dialog = new TextPrompt("GetUserName");
-
-            dialogSet.Add(new WaterfallDialog("GetNameOfUser", userNameInputWaterfall));
-            dialogSet.Add(dialog);
-        }
-
         private Task<DialogTurnResult> EndDialogAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             return stepContext.EndDialogAsync(stepContext.Result);
-        }
-
-        private async Task<DialogTurnResult> GetUserNameAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            await stepContext.PromptAsync("GetUserName", new PromptOptions { Prompt = MessageFactory.Text("Please enter you name") });
-            return await stepContext.ContinueDialogAsync(cancellationToken);
         }
 
         private void SetWaterfallSteps(DialogSet dialogSet)
