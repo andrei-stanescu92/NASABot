@@ -2,7 +2,9 @@
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
+using NASABot.Models;
 using NASABot.Services.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -22,6 +24,11 @@ namespace NASABot.Services
         {
             SetWaterfallSteps(dialogSet);
             AddPictureOfTheDayDialog(dialogSet);
+            AddMarsRoverDataDialog(dialogSet);
+
+            //mars rover date prompt
+            DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt");
+            dialogSet.Add(earthDatePrompt);
 
             //add choice options dialog
             var choicePrompt = new ChoicePrompt("GetChoices");
@@ -31,6 +38,40 @@ namespace NASABot.Services
             var confirmationPrompt = new ConfirmPrompt("ConfirmationDialog");
             dialogSet.Add(confirmationPrompt);
         }
+
+        #region Mars Rover Dialog
+
+        private void AddMarsRoverDataDialog(DialogSet dialogSet)
+        {
+            var waterfallSteps = new WaterfallStep[]
+            {
+                ChoiceConfirmationDialogAsync,
+                GetEarthDateInputAsync,
+                DisplayMarsRoverDataAsync
+            };
+
+            var dialog = new WaterfallDialog("DisplayMarsRoverData", waterfallSteps);
+            dialogSet.Add(dialog);
+        }
+
+        private async Task<DialogTurnResult> GetEarthDateInputAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            return await stepContext.PromptAsync("EarthDatePrompt", new PromptOptions
+            {
+                Prompt = MessageFactory.Text("Enter a past date in the following format : YYYY - MM - DD")
+            });
+        }
+
+        private async Task<DialogTurnResult> DisplayMarsRoverDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            string earthDate = stepContext.Result.ToString();
+            List<MarsRoverPhoto> marsRoverPictures = await this.dataService.GetMarsRoverPhoto(earthDate);
+            throw new NotImplementedException();
+        }
+
+        #endregion
+
+        #region Picture Of The Day dialog
 
         private void AddPictureOfTheDayDialog(DialogSet dialogSet)
         {
@@ -82,10 +123,7 @@ namespace NASABot.Services
             }
         }
 
-        private Task<DialogTurnResult> EndDialogAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            return stepContext.EndDialogAsync(stepContext.Result);
-        }
+        #endregion
 
         private void SetWaterfallSteps(DialogSet dialogSet)
         {

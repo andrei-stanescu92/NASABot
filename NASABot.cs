@@ -75,6 +75,12 @@ namespace NASABot
 
                             await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext);
                         }
+                        else if(turnContext.Activity.Text == nameof(MarsRoverPhoto))
+                        {
+                            await dialogContext.BeginDialogAsync("DisplayMarsRoverData");
+
+                            await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext);
+                        }
                     }
                 }
             }
