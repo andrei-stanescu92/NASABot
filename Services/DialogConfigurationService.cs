@@ -1,11 +1,10 @@
 ﻿using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
-using Microsoft.Bot.Builder.Dialogs.Choices;
 using Microsoft.Bot.Schema;
 using NASABot.Models;
 using NASABot.Services.Interfaces;
-using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -22,12 +21,11 @@ namespace NASABot.Services
 
         public void SetDialogConfiguration(DialogSet dialogSet)
         {
-            SetWaterfallSteps(dialogSet);
             AddPictureOfTheDayDialog(dialogSet);
             AddMarsRoverDataDialog(dialogSet);
 
             //mars rover date prompt
-            DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt");
+            DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt", DateValidatorAsync);
             dialogSet.Add(earthDatePrompt);
 
             //add choice options dialog
@@ -37,9 +35,23 @@ namespace NASABot.Services
             //add generic confirmation dialog
             var confirmationPrompt = new ConfirmPrompt("ConfirmationDialog");
             dialogSet.Add(confirmationPrompt);
+
         }
 
         #region Mars Rover Dialog
+
+        private async Task<bool> DateValidatorAsync(PromptValidatorContext<IList<DateTimeResolution>> promptContext, CancellationToken cancellationToken)
+        {
+            //input is not a in date format
+            if(promptContext.Recognized.Succeeded == false)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
+            }
+        }
 
         private void AddMarsRoverDataDialog(DialogSet dialogSet)
         {
@@ -47,7 +59,7 @@ namespace NASABot.Services
             {
                 ChoiceConfirmationDialogAsync,
                 GetEarthDateInputAsync,
-                DisplayMarsRoverDataAsync
+                DisplayDataAsync
             };
 
             var dialog = new WaterfallDialog("DisplayMarsRoverData", waterfallSteps);
@@ -56,17 +68,42 @@ namespace NASABot.Services
 
         private async Task<DialogTurnResult> GetEarthDateInputAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            return await stepContext.PromptAsync("EarthDatePrompt", new PromptOptions
+            if ((bool)stepContext.Result)
             {
-                Prompt = MessageFactory.Text("Enter a past date in the following format : YYYY - MM - DD")
-            });
+                return await stepContext.PromptAsync("EarthDatePrompt", new PromptOptions
+                {
+                    Prompt = MessageFactory.Text("Enter a date in order to get the appropriate photos"),
+                    RetryPrompt = MessageFactory.Text("Please enter the date in the correct format")
+                });
+            }
+            else
+            {
+                return  await stepContext.EndDialogAsync();
+            }
         }
 
-        private async Task<DialogTurnResult> DisplayMarsRoverDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> DisplayDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
-            string earthDate = stepContext.Result.ToString();
+            IList<DateTimeResolution> dateTimeResolutions = ((IList<DateTimeResolution>)stepContext.Result);
+            string earthDate = dateTimeResolutions.First().Value;
             List<MarsRoverPhoto> marsRoverPictures = await this.dataService.GetMarsRoverPhoto(earthDate);
-            throw new NotImplementedException();
+            var reply = stepContext.Context.Activity.CreateReply("Sample pictures");
+
+            var attachments = new List<Attachment>();
+            for (int i = 0; i < 3; i++)
+            {
+                var attachment = new Attachment
+                {
+                    ContentType = "image/jpg",
+                    ContentUrl = marsRoverPictures[i].ImageSource
+                };
+                attachments.Add(attachment);
+            }
+
+            reply.Attachments = attachments;
+
+            await stepContext.Context.SendActivityAsync(reply, cancellationToken);
+            return await stepContext.EndDialogAsync();
         }
 
         #endregion
@@ -124,36 +161,5 @@ namespace NASABot.Services
         }
 
         #endregion
-
-        private void SetWaterfallSteps(DialogSet dialogSet)
-        {
-            var waterfallSteps = new WaterfallStep[]
-            {
-                ChoiceStepAsync,
-                DisplaySelectedChoiceAsync
-            };
-
-            dialogSet.Add(new WaterfallDialog("GetData", waterfallSteps));
-            dialogSet.Add(new ChoicePrompt("choices") { ChoiceOptions = new ChoiceFactoryOptions() { IncludeNumbers = false } });
-        }
-
-        private async Task<DialogTurnResult> ChoiceStepAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            return await stepContext.PromptAsync("choices", new PromptOptions()
-            {
-                Prompt = MessageFactory.Text("Please select from one of the options"),
-                Choices = new List<Choice>() { new Choice("Pluto"), new Choice("Mars"), new Choice("Earth")}
-            });
-        }
-
-        private async Task<DialogTurnResult> DisplaySelectedChoiceAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
-        {
-            // a waterfallstep finishes with the end of the waterfall or with another dialog.
-            // Running a prompt here means the next WaterfallStep will execute when the user response is received.
-            //return await stepContext.PromptAsync("GetName", new PromptOptions() { Prompt = MessageFactory.Text("Please enter your name") }, 
-            //                                            cancellationToken);
-            await stepContext.Context.SendActivityAsync($"This is the choice selected {stepContext.Result.ToString()}");
-            return await stepContext.EndDialogAsync();
-        }
     }
 }

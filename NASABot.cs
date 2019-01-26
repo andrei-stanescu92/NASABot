@@ -18,18 +18,15 @@ namespace NASABot
         private readonly WelcomeUserStateAccessors _welcomeUserStateAccessors;
         private readonly MultiTurnPromptsAccessor _promptsAccessor;
         private readonly DialogSet _dialogs;
-        private readonly IDataService dataService;
 
         public NASABot(WelcomeUserStateAccessors statePropertyAccessor, MultiTurnPromptsAccessor promptsAccessor, 
-            IDataService dataService, IDialogConfigurationService dialogConfigurationService)
+            IDialogConfigurationService dialogConfigurationService)
         {
             _welcomeUserStateAccessors = statePropertyAccessor ?? throw new ArgumentNullException("state accessor can't be null");
             _promptsAccessor = promptsAccessor ?? throw new ArgumentNullException("prompts accessor cannot be null");
 
             _dialogs = new DialogSet(_promptsAccessor.ConversationDialogState);
             dialogConfigurationService.SetDialogConfiguration(_dialogs);
-
-            this.dataService = dataService;
         }
 
         public async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
@@ -40,12 +37,13 @@ namespace NASABot
    
             string userName = this._welcomeUserStateAccessors.UserProfile.GetAsync(turnContext).Result;
 
-            // create dialog context
-            var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
-
             if (turnContext.Activity.Type == ActivityTypes.Message)
             {
-                // welcome User
+                // get dialog context
+                var dialogContext = await _dialogs.CreateContextAsync(turnContext, cancellationToken);
+                var dialogResult = await dialogContext.ContinueDialogAsync(cancellationToken);
+
+                //welcome User
                 if (didBotWelcomeUser == false)
                 {
                     await WelcomeUser(turnContext);
@@ -53,40 +51,44 @@ namespace NASABot
                 // get userName
                 else if (string.IsNullOrEmpty(userName) && didBotWelcomeUser)
                 {
-                    await GetUserProfileName(turnContext);
+                    await SetUserProfileName(turnContext);
 
-                    //present dialog options for user choose from
+                    ////present dialog options for user choose from
                     await dialogContext.PromptAsync("GetChoices", new PromptOptions()
                     {
                         Choices = new List<Choice>() { new Choice(nameof(PictureOfTheDay)), new Choice(nameof(MarsRoverPhoto)), new Choice(nameof(Asteroid)) },
                         Prompt = MessageFactory.Text("Select from one of the options")
                     });
+                    
                 }
                 // display information based on user selection
                 else
                 {
-                    var dialogResult = await dialogContext.ContinueDialogAsync(cancellationToken);
+                    //var dialogResult = await dialogContext.ContinueDialogAsync(cancellationToken);
 
-                    if (dialogResult.Status == DialogTurnStatus.Empty)
+                    if (dialogResult != null && dialogResult.Status == DialogTurnStatus.Empty || 
+                        dialogResult.Status == DialogTurnStatus.Complete)
                     {
                         if (turnContext.Activity.Text == nameof(PictureOfTheDay))
                         {
                             await dialogContext.BeginDialogAsync("ShowPictureOfTheDay");
 
-                            await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext);
+                            //await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext, true);
                         }
-                        else if(turnContext.Activity.Text == nameof(MarsRoverPhoto))
+                        else if (turnContext.Activity.Text == nameof(MarsRoverPhoto))
                         {
                             await dialogContext.BeginDialogAsync("DisplayMarsRoverData");
 
-                            await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext);
+                            //await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext, true);
                         }
                     }
                 }
+                // Save the dialog state into the conversation state.
+                await _promptsAccessor.ConversationState.SaveChangesAsync(turnContext, false, cancellationToken);
             }
         }
 
-        private async Task GetUserProfileName(ITurnContext turnContext)
+        private async Task SetUserProfileName(ITurnContext turnContext)
         {
             string userNameInput = turnContext.Activity.Text;
             await this._welcomeUserStateAccessors.UserProfile.SetAsync(turnContext, userNameInput);
