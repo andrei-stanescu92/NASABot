@@ -1,6 +1,8 @@
-﻿using Microsoft.Bot.Builder;
+﻿using AdaptiveCards;
+using Microsoft.Bot.Builder;
 using Microsoft.Bot.Builder.Dialogs;
 using Microsoft.Bot.Schema;
+using NASABot.Helpers;
 using NASABot.Models;
 using NASABot.Services.Interfaces;
 using System.Collections.Generic;
@@ -23,10 +25,17 @@ namespace NASABot.Services
         {
             AddPictureOfTheDayDialog(dialogSet);
             AddMarsRoverDataDialog(dialogSet);
+            AddAsteroidDataDialog(dialogSet);
 
             //mars rover date prompt
             DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt", DateValidatorAsync);
             dialogSet.Add(earthDatePrompt);
+
+            //asteroid start && end date prompts
+            DateTimePrompt startDatePrompt = new DateTimePrompt("StartDatePrompt", DateValidatorAsync);
+            dialogSet.Add(startDatePrompt);
+            DateTimePrompt endDatePrompt = new DateTimePrompt("EndDatePrompt", DateValidatorAsync);
+            dialogSet.Add(endDatePrompt);
 
             //add choice options dialog
             var choicePrompt = new ChoicePrompt("GetChoices");
@@ -38,20 +47,107 @@ namespace NASABot.Services
 
         }
 
-        #region Mars Rover Dialog
-
-        private async Task<bool> DateValidatorAsync(PromptValidatorContext<IList<DateTimeResolution>> promptContext, CancellationToken cancellationToken)
+        private void AddAsteroidDataDialog(DialogSet dialogSet)
         {
-            //input is not a in date format
-            if(promptContext.Recognized.Succeeded == false)
+            var waterfallSteps = new WaterfallStep[]
             {
-                return false;
+                ChoiceConfirmationDialogAsync,
+                GetStartDateAsync,
+                GetEndDateAsync,
+                DisplayAsteroidDataAsync
+            };
+
+            dialogSet.Add(new WaterfallDialog("DisplayAsteroidData", waterfallSteps));
+        }
+
+        private async Task<DialogTurnResult> GetStartDateAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            if ((bool)stepContext.Result)
+            {
+                var options = new PromptOptions()
+                {
+                    Prompt = MessageFactory.Text("Enter a start date"),
+                    RetryPrompt = MessageFactory.Text("Please enter a valid date")
+                };
+                return await stepContext.PromptAsync("StartDatePrompt", options);
+            }
+            return await stepContext.EndDialogAsync();
+        }
+
+        private async Task<DialogTurnResult> GetEndDateAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            var dateTimeResolution = (List<DateTimeResolution>)stepContext.Result;
+            AsteroidHelper.StartDate = dateTimeResolution.First().Value;
+
+            var options = new PromptOptions()
+            {
+                Prompt = MessageFactory.Text("Enter an end date"),
+                RetryPrompt = MessageFactory.Text("Please enter a valid date")
+            };
+            return await stepContext.PromptAsync("EndDatePrompt", options);
+        }
+
+        private async Task<DialogTurnResult> DisplayAsteroidDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            string endDate = ((List<DateTimeResolution>)stepContext.Result).First().Value;
+            List<Asteroid> asteroids = await this.dataService.GetAsteroids(AsteroidHelper.StartDate, endDate);
+
+            if (asteroids.Count != 0)
+            {
+                var reply = stepContext.Context.Activity.CreateReply($"Asteroids. Count: {asteroids.Count}");
+                reply.Attachments = new List<Attachment>();
+
+                foreach (var asteroid in asteroids)
+                {
+                    var card = new AdaptiveCard("1.0");
+                    card.Body.Add(new AdaptiveTextBlock()
+                    {
+                        Text = asteroid.Name,
+                        Size = AdaptiveTextSize.Small,
+                        Color = AdaptiveTextColor.Good
+                    });
+
+                    card.Body.Add(new AdaptiveTextBlock()
+                    {
+                        Text = $"Is hazardous : {asteroid.IsPotentiallyHazardous}",
+                        Size = AdaptiveTextSize.Small,
+                        Color = AdaptiveTextColor.Attention
+                    });
+
+                    card.Body.Add(new AdaptiveTextBlock()
+                    {
+                        Text = $"Minimum estimated diameter : {asteroid.MinEstimatedDiameter}",
+                        Size = AdaptiveTextSize.Small,
+                        Color = AdaptiveTextColor.Accent
+                    });
+
+                    card.Body.Add(new AdaptiveTextBlock()
+                    {
+                        Text = $"Maximum estimated diameter : {asteroid.MaxEstimatedDiameter}",
+                        Size = AdaptiveTextSize.Small,
+                        Color = AdaptiveTextColor.Accent
+                    });
+
+                    var attachment = new Attachment
+                    {
+                        Content = card,
+                        ContentType = AdaptiveCard.ContentType
+                    };
+
+                    reply.Attachments.Add(attachment);
+                }
+
+                await stepContext.Context.SendActivityAsync(reply, cancellationToken);
             }
             else
             {
-                return true;
+                await stepContext.Context.SendActivityAsync("No asteroids have been found for the dates selected");
             }
+            
+            return await stepContext.EndDialogAsync();
         }
+
+        #region Mars Rover Dialog
 
         private void AddMarsRoverDataDialog(DialogSet dialogSet)
         {
@@ -157,6 +253,23 @@ namespace NASABot.Services
             else
             {
                 return await stepContext.EndDialogAsync();
+            }
+        }
+
+        #endregion
+
+        #region Validation Methods
+
+        private async Task<bool> DateValidatorAsync(PromptValidatorContext<IList<DateTimeResolution>> promptContext, CancellationToken cancellationToken)
+        {
+            //input is not a in date format
+            if (promptContext.Recognized.Succeeded == false)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
             }
         }
 

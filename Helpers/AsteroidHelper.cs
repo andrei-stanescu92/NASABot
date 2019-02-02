@@ -6,6 +6,8 @@ namespace NASABot.Helpers
 {
     public static class AsteroidHelper
     {
+        public static string StartDate;
+
         public static void GetVelocity(Asteroid asteroid, JToken jToken)
         {
             var velocityJsonObject = jToken["close_approach_data"][0];

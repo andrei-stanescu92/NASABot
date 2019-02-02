@@ -81,6 +81,10 @@ namespace NASABot
 
                             //await this._promptsAccessor.ConversationState.SaveChangesAsync(turnContext, true);
                         }
+                        else if(turnContext.Activity.Text == nameof(Asteroid))
+                        {
+                            await dialogContext.BeginDialogAsync("DisplayAsteroidData");
+                        }
                     }
                 }
                 // Save the dialog state into the conversation state.
