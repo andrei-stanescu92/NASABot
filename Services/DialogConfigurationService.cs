@@ -5,6 +5,7 @@ using Microsoft.Bot.Schema;
 using NASABot.Helpers;
 using NASABot.Models;
 using NASABot.Services.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -15,10 +16,12 @@ namespace NASABot.Services
     public class DialogConfigurationService : IDialogConfigurationService
     {
         private readonly IDataService dataService;
+        private readonly WelcomeUserStateAccessors userStateAccessors;
 
-        public DialogConfigurationService(IDataService service)
+        public DialogConfigurationService(IDataService service, WelcomeUserStateAccessors userStateAccessors)
         {
             this.dataService = service;
+            this.userStateAccessors = userStateAccessors;
         }
 
         public void SetDialogConfiguration(DialogSet dialogSet)
@@ -30,6 +33,9 @@ namespace NASABot.Services
             //mars rover date prompt
             DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt", DateValidatorAsync);
             dialogSet.Add(earthDatePrompt);
+
+            NumberPrompt<int> numberOfPicturesPrompt = new NumberPrompt<int>("NumberOfPicturesPrompt");
+            dialogSet.Add(numberOfPicturesPrompt);
 
             //asteroid start && end date prompts
             DateTimePrompt startDatePrompt = new DateTimePrompt("StartDatePrompt", DateValidatorAsync);
@@ -59,6 +65,8 @@ namespace NASABot.Services
 
             dialogSet.Add(new WaterfallDialog("DisplayAsteroidData", waterfallSteps));
         }
+
+        #region Asteroids Object Data
 
         private async Task<DialogTurnResult> GetStartDateAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
@@ -147,6 +155,8 @@ namespace NASABot.Services
             return await stepContext.EndDialogAsync();
         }
 
+        #endregion
+
         #region Mars Rover Dialog
 
         private void AddMarsRoverDataDialog(DialogSet dialogSet)
@@ -155,6 +165,7 @@ namespace NASABot.Services
             {
                 ChoiceConfirmationDialogAsync,
                 GetEarthDateInputAsync,
+                GetNumberOfPicturesToDisplayAsync,
                 DisplayDataAsync
             };
 
@@ -178,25 +189,59 @@ namespace NASABot.Services
             }
         }
 
-        private async Task<DialogTurnResult> DisplayDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        private async Task<DialogTurnResult> GetNumberOfPicturesToDisplayAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
         {
             IList<DateTimeResolution> dateTimeResolutions = ((IList<DateTimeResolution>)stepContext.Result);
             string earthDate = dateTimeResolutions.First().Value;
             List<MarsRoverPhoto> marsRoverPictures = await this.dataService.GetMarsRoverPhoto(earthDate);
-            var reply = stepContext.Context.Activity.CreateReply("Sample pictures");
-
-            var attachments = new List<Attachment>();
-            for (int i = 0; i < 3; i++)
+            if(marsRoverPictures.Count == 0)
             {
-                var attachment = new Attachment
-                {
-                    ContentType = "image/jpg",
-                    ContentUrl = marsRoverPictures[i].ImageSource
-                };
-                attachments.Add(attachment);
+                await stepContext.Context.SendActivityAsync("No pictures have been found for the selected date");
+                return await stepContext.EndDialogAsync();
             }
 
+            //await this.userStateAccessors.UserData.GetAsync(stepContext.Context, () => new List<MarsRoverPhoto>());
+            await this.userStateAccessors.UserData.SetAsync(stepContext.Context, marsRoverPictures);
+            await this.userStateAccessors.UserState.SaveChangesAsync(stepContext.Context);
+
+            return await stepContext.PromptAsync("NumberOfPicturesPrompt", new PromptOptions
+            {
+                Prompt = MessageFactory.Text($"Enter a number up to {marsRoverPictures.Count}")                
+            });
+        }
+
+        private async Task<DialogTurnResult> DisplayDataAsync(WaterfallStepContext stepContext, CancellationToken cancellationToken)
+        {
+            var marsRoverPhotos = this.userStateAccessors.UserData.GetAsync(stepContext.Context).Result;
+            int photoCount = (int)stepContext.Result;
+            var reply = stepContext.Context.Activity.CreateReply("Sample pictures");
+
+            var heroCard = new HeroCard
+            {
+                Title = "Mars Rovers Photos"
+            };
+
+            heroCard.Images = new List<CardImage>();
+
+            for (int i = 0; i < photoCount; i++)
+            {
+                var cardImage = new CardImage
+                {
+                    Url = marsRoverPhotos[i].ImageSource
+                };
+
+                heroCard.Images.Add(cardImage);
+            }
+
+            var attachment = new Attachment
+            {
+                Content = heroCard,
+                ContentType = HeroCard.ContentType
+            };
+
+            var attachments = new List<Attachment> { attachment };
             reply.Attachments = attachments;
+            reply.AttachmentLayout = "list";
 
             await stepContext.Context.SendActivityAsync(reply, cancellationToken);
             return await stepContext.EndDialogAsync();
@@ -234,20 +279,29 @@ namespace NASABot.Services
                 var pictureOfTheDay = await this.dataService.GetCurrentPictureOfTheDay();
 
                 // create and send reply to user containing the returned API data
-                Activity reply = stepContext.Context.Activity.CreateReply(pictureOfTheDay.Title);
-                reply.Summary = pictureOfTheDay.Explanation;
-                var attachments = new List<Attachment>()
+                Activity reply = stepContext.Context.Activity.CreateReply("Picture of the day");
+
+                var heroCard = new HeroCard
+                {
+                    Images = new List<CardImage>()
                     {
-                        new Attachment
-                        {
-                            ContentUrl = pictureOfTheDay.Url,
-                            ContentType = "image/jpg"
-                        }
-                    };
+                        new CardImage() { Url = pictureOfTheDay.Url }
+                    },
+                    Title = pictureOfTheDay.Title,
+                    Text = pictureOfTheDay.Explanation
+                };
+
+                var attachments = new List<Attachment>()
+                {
+                    new Attachment
+                    {
+                        Content = heroCard,
+                        ContentType = HeroCard.ContentType
+                    }
+                };
 
                 reply.Attachments = attachments;
                 await stepContext.Context.SendActivityAsync(reply);
-                await stepContext.Context.SendActivityAsync(reply.Summary);
                 return await stepContext.EndDialogAsync();
             }
             else
@@ -269,7 +323,10 @@ namespace NASABot.Services
             }
             else
             {
-                return true;
+                if (promptContext.Recognized.Value.FirstOrDefault().Value != null)
+                    return true;
+                else
+                    return false;
             }
         }
 

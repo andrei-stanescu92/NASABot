@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -11,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NASABot.Dialogs;
+using NASABot.Models;
 using NASABot.Services;
 using NASABot.Services.Interfaces;
 
@@ -68,7 +70,8 @@ namespace NASABot
                 var accessors = new WelcomeUserStateAccessors(userState)
                 {
                     DidBotWelcomeUser = userState.CreateProperty<bool>("DidBotWelcomeState"),
-                    UserProfile = userState.CreateProperty<string>("UserProfile")
+                    UserProfile = userState.CreateProperty<string>("UserProfile"),
+                    UserData = userState.CreateProperty<IList<MarsRoverPhoto>>("UserData")
                 };
 
                 return accessors;
@@ -88,7 +91,6 @@ namespace NASABot
 
                 return conversationAccessor;
             });
-
             services.AddSingleton<IDataService, DataService>();
             services.AddSingleton<IDialogConfigurationService, DialogConfigurationService>();
         }

@@ -25,13 +25,14 @@ namespace NASABot
             _welcomeUserStateAccessors = statePropertyAccessor ?? throw new ArgumentNullException("state accessor can't be null");
             _promptsAccessor = promptsAccessor ?? throw new ArgumentNullException("prompts accessor cannot be null");
 
-            _dialogs = new DialogSet(_promptsAccessor.ConversationDialogState);
+            _dialogs = new DialogSet(_promptsAccessor.ConversationDialogState);        
             dialogConfigurationService.SetDialogConfiguration(_dialogs);
         }
 
         public async Task OnTurnAsync(ITurnContext turnContext, CancellationToken cancellationToken = default(CancellationToken))
         {
             // set unassigned welcomeUser and user Profile name to default values
+            await this._welcomeUserStateAccessors.UserData.GetAsync(turnContext, () => new List<MarsRoverPhoto>());
             var didBotWelcomeUser = await this._welcomeUserStateAccessors.DidBotWelcomeUser.GetAsync(turnContext, () => false);
             await this._welcomeUserStateAccessors.UserProfile.GetAsync(turnContext, () => null);
    
