@@ -34,7 +34,7 @@ namespace NASABot.Services
             DateTimePrompt earthDatePrompt = new DateTimePrompt("EarthDatePrompt", DateValidatorAsync);
             dialogSet.Add(earthDatePrompt);
 
-            NumberPrompt<int> numberOfPicturesPrompt = new NumberPrompt<int>("NumberOfPicturesPrompt");
+            NumberPrompt<int> numberOfPicturesPrompt = new NumberPrompt<int>("NumberOfPicturesPrompt", NumberValidatorAsync);
             dialogSet.Add(numberOfPicturesPrompt);
 
             //asteroid start && end date prompts
@@ -329,6 +329,16 @@ namespace NASABot.Services
                     return false;
             }
         }
+
+
+        private async Task<bool> NumberValidatorAsync(PromptValidatorContext<int> promptContext, CancellationToken cancellationToken)
+        {
+            if (promptContext.Recognized.Succeeded)
+                return true;
+            else
+                return false;
+        }
+
 
         #endregion
     }
